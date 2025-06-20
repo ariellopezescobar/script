@@ -35,13 +35,13 @@ helm repo add rancher-latest https://releases.rancher.com/server-charts/latest
 helm repo update
 kubectl create namespace cattle-system || true
 helm upgrade --install rancher rancher-latest/rancher \
-  --namespace cattle-system\
+  --namespace cattle-system \
   --set hostname=$DOMAIN \
   --set replicas=1 \
   --set ingress.tls.source=cert-manager \
-  --set ingress.extraAnnotations."cert-manager\.io/cluster-issuer"=letsencrypt-http \
+  --set ingress.tls.certManagerIssuerName=letsencrypt-http \
   --set ingress.tls.certmanager=true \
-  --set privateCA=true
+  --set ingress.extraAnnotations."cert-manager\.io/cluster-issuer"=letsencrypt-http
 echo "### Esperando despliegue de Rancher..."
 if kubectl -n cattle-system rollout status deploy/rancher --timeout=30m; then
   echo "✅ Rancher instalado correctamente. Accede a: https://$DOMAIN"
