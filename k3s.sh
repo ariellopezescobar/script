@@ -39,7 +39,6 @@ helm upgrade --install rancher rancher-latest/rancher \
   --set hostname=$DOMAIN \
   --set replicas=1 \
   --set ingress.tls.source=cert-manager \
-  --set ingress.tls.certManagerIssuerName=letsencrypt-http \
   --set ingress.extraAnnotations."cert-manager\.io/cluster-issuer"=letsencrypt-http \
   --set ingress.tls.certmanager=true \
   --set privateCA=true
