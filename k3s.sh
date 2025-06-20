@@ -35,7 +35,7 @@ helm repo add rancher-latest https://releases.rancher.com/server-charts/latest
 helm repo update
 kubectl create namespace cattle-system || true
 helm upgrade --install rancher rancher-latest/rancher \
-  --namespace cattle-system --create-namespace \
+  --namespace cattle-system\
   --set hostname=$DOMAIN \
   --set replicas=1 \
   --set ingress.tls.source=cert-manager \
