@@ -77,3 +77,32 @@ else
   echo "### El certificado tls-rancher-ingress ya existe y está listo."
 fi
 kubectl -n cattle-system wait --for=condition=Ready certificate/tls-rancher-ingress --timeout=30m || true
+#!/bin/bash
+set -e
+
+ARCHIVO_CERT="cacerts.pem"
+ARCHIVO_B64="cacerts.b64"
+ARCHIVO_YAML="cacerts.yaml"
+
+echo "### Paso 1: Descargando certificado desde $DOMAIN..."
+echo | openssl s_client -connect "$DOMINIO:443" -servername "$DOMAIN" -showcerts 2>/dev/null \
+  | awk '/-----BEGIN CERTIFICATE-----/,/-----END CERTIFICATE-----/' > "$ARCHIVO_CERT"
+
+echo "### Paso 2: Codificando certificado en base64 (una sola línea)..."
+base64 -w0 "$ARCHIVO_CERT" > "$ARCHIVO_B64"
+
+echo "### Paso 3: Generando archivo YAML..."
+cat <<EOF > "$ARCHIVO_YAML"
+apiVersion: management.cattle.io/v3
+kind: Setting
+metadata:
+  name: cacerts
+value: $(cat "$ARCHIVO_B64")
+EOF
+
+echo "### Paso 4: Aplicando con kubectl..."
+kubectl apply -f "$ARCHIVO_YAML"
+
+echo "### Certificado cargado correctamente."
+echo "✔ Puedes verificar con:"
+echo "kubectl get setting.management.cattle.io/cacerts -o jsonpath='{.value}' | base64 -d | openssl x509 -noout -fingerprint -sha256"
