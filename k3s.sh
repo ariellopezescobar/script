@@ -80,29 +80,40 @@ kubectl -n cattle-system wait --for=condition=Ready certificate/tls-rancher-ingr
 #!/bin/bash
 set -e
 
-ARCHIVO_CERT="cacerts.pem"
-ARCHIVO_B64="cacerts.b64"
-ARCHIVO_YAML="cacerts.yaml"
+#!/bin/bash
 
-echo "### Paso 1: Descargando certificado desde $DOMAIN..."
-echo | openssl s_client -connect "$DOMINIO:443" -servername "$DOMAIN" -showcerts 2>/dev/null \
-  | awk '/-----BEGIN CERTIFICATE-----/,/-----END CERTIFICATE-----/' > "$ARCHIVO_CERT"
+set -e
 
-echo "### Paso 2: Codificando certificado en base64 (una sola línea)..."
-base64 -w0 "$ARCHIVO_CERT" > "$ARCHIVO_B64"
+DOMINIO="k3s.oruro.gob.bo"
+ARCHIVO_CACERTS="/tmp/cacerts.yaml"
+CERTS_EXTRAIDOS="/tmp/cert_chain.pem"
 
-echo "### Paso 3: Generando archivo YAML..."
-cat <<EOF > "$ARCHIVO_YAML"
-apiVersion: management.cattle.io/v3
-kind: Setting
-metadata:
-  name: cacerts
-value: $(cat "$ARCHIVO_B64")
-EOF
+echo "🔐 Extrayendo certificados de $DOMINIO:443 ..."
+openssl s_client -showcerts -connect "$DOMINIO:443" </dev/null 2>/dev/null | \
+  awk '/BEGIN CERTIFICATE/,/END CERTIFICATE/ { print }' > "$CERTS_EXTRAIDOS"
 
-echo "### Paso 4: Aplicando con kubectl..."
-kubectl apply -f "$ARCHIVO_YAML"
+if [[ ! -s "$CERTS_EXTRAIDOS" ]]; then
+  echo "❌ No se pudieron extraer certificados de $DOMINIO"
+  exit 1
+fi
 
-echo "### Certificado cargado correctamente."
-echo "✔ Puedes verificar con:"
-echo "kubectl get setting.management.cattle.io/cacerts -o jsonpath='{.value}' | base64 -d | openssl x509 -noout -fingerprint -sha256"
+echo "✅ Certificados extraídos: $(grep -c 'BEGIN CERTIFICATE' $CERTS_EXTRAIDOS)"
+
+# Formatear el YAML
+echo "📝 Generando archivo cacerts.yaml en $ARCHIVO_CACERTS ..."
+{
+  echo "apiVersion: management.cattle.io/v3"
+  echo "kind: Setting"
+  echo "metadata:"
+  echo "  name: cacerts"
+  echo "value: |"
+  sed 's/^/  /' "$CERTS_EXTRAIDOS"
+} > "$ARCHIVO_CACERTS"
+
+echo "🚀 Aplicando cacerts.yaml a Rancher..."
+kubectl apply -f "$ARCHIVO_CACERTS"
+
+echo "🔍 Verificando que Rancher lo haya recibido..."
+kubectl get setting.cattle.io cacerts -o yaml | grep -A 5 '^value:' || true
+
+echo "✅ Todo listo. Puedes registrar nodos usando --ca-checksum ahora."
