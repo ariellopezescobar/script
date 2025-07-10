@@ -82,37 +82,43 @@ kubectl -n cattle-system wait --for=condition=Ready certificate/tls-rancher-ingr
 
 set -e
 
-DOMAIN="k3s.oruro.gob.bo"
-NAMESPACE="cattle-system"
-TMP_CERT="/tmp/rancher-ca.crt"
+DOMINIO="k3s.oruro.gob.bo"
+ARCHIVO_CERT="/tmp/rancher-ca.crt"
 
-echo "🔐 Extrayendo certificado real desde $DOMAIN..."
-echo | openssl s_client -connect "$DOMAIN:443" -showcerts 2>/dev/null | \
-  openssl x509 -outform PEM > "$TMP_CERT"
+echo "🔐 Extrayendo certificado de $DOMINIO:443 ..."
+echo | openssl s_client -connect "$DOMINIO:443" -showcerts 2>/dev/null \
+  | openssl x509 -outform PEM > "$ARCHIVO_CERT"
 
-if [[ ! -s "$TMP_CERT" ]]; then
-  echo "❌ No se pudo extraer el certificado del ingress"
+if [[ ! -s "$ARCHIVO_CERT" ]]; then
+  echo "❌ No se pudo extraer el certificado de $DOMINIO"
   exit 1
 fi
 
-echo "✅ Certificado extraído:"
-openssl x509 -in "$TMP_CERT" -noout -fingerprint -sha256
+echo "✅ Certificado extraído correctamente."
 
-echo "🚀 Actualizando Rancher con el cacerts correcto..."
+echo "🔑 Eliminando el secret previo (si existe)..."
+kubectl -n cattle-system delete secret tls-ca || true
 
-kubectl -n $NAMESPACE delete secret tls-ca --ignore-not-found
-kubectl -n $NAMESPACE create secret generic tls-ca --from-file=cacerts.pem="$TMP_CERT"
+echo "🔑 Creando el secret tls-ca con el certificado..."
+kubectl -n cattle-system create secret generic tls-ca --from-file=cacerts.pem="$ARCHIVO_CERT"
 
-echo "♻️ Reiniciando Rancher..."
-kubectl -n $NAMESPACE rollout restart deploy rancher
+echo "⚙️  Reconfigurando Rancher para usar el privateCA..."
+helm upgrade rancher rancher-latest/rancher \
+  --namespace cattle-system \
+  --set hostname="$DOMINIO" \
+  --set ingress.tls.source=secret \
+  --set privateCA=true
 
-echo "⏳ Espera 20-30s para que Rancher publique el /cacerts..."
-sleep 30
+echo "♻ Reiniciando Rancher para aplicar cambios..."
+kubectl -n cattle-system rollout restart deployment rancher
 
-echo "🔍 Validando que Rancher sirva correctamente el cacerts..."
-curl -sk https://$DOMAIN/cacerts | openssl x509 -noout -fingerprint -sha256 || {
+echo "⏳ Espera 120 segundos a que Rancher reinicie..."
+sleep 120
+
+echo "🔍 Validando que Rancher publique correctamente el cacerts..."
+curl -sk "https://$DOMINIO/cacerts" | openssl x509 -noout -fingerprint -sha256 || {
   echo "❌ Rancher aún no publica el cacerts correctamente"
   exit 1
 }
 
-echo "✅ Proceso completo. Ahora puedes usar el checksum con el system-agent."
+echo "✅ Proceso finalizado. Puedes registrar nodos con el nuevo --ca-checksum."
