@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-DOMAIN="k3s.oruro.gob.bo"
+DOMAIN="kub.oruro.gob.bo"
 EMAIL="admin@oruro.gob.bo"
 apt-get update && apt-get upgrade -y
 apt-get install -y curl wget bash ca-certificates gnupg lsb-release apt-transport-https net-tools ufw nmap
@@ -82,7 +82,7 @@ kubectl -n cattle-system wait --for=condition=Ready certificate/tls-rancher-ingr
 
 set -e
 
-DOMINIO="k3s.oruro.gob.bo"
+DOMINIO="kub.oruro.gob.bo"
 ARCHIVO_CERT="/tmp/rancher-ca.crt"
 
 echo "🔐 Extrayendo certificado de $DOMINIO:443 ..."
