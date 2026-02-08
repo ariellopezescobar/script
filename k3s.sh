@@ -37,7 +37,8 @@ kubectl create namespace cattle-system || true
 curl -o letsencrypt-ca.pem https://letsencrypt.org/certs/isrgrootx1.pem.txt
 cat letsencrypt-ca.pem | awk '{printf "%s\\n", $0}' > letsencrypt-ca-escaped.txt
 CACERTS=$(cat letsencrypt-ca-escaped.txt)
-helm upgrade --install rancher rancher-latest/rancher \
+helm upgrade --install rancher rancher-stable/rancher \
+  --version 2.12.3 \
   --namespace cattle-system --create-namespace \
   --set hostname=$DOMAIN \
   --set replicas=1 \
