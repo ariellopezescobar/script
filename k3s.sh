@@ -4,7 +4,7 @@ DOMAIN="k3s.oruro.gob.bo"
 EMAIL="admin@oruro.gob.bo"
 apt-get update && apt-get upgrade -y
 apt-get install -y curl wget bash ca-certificates gnupg lsb-release apt-transport-https net-tools ufw nmap
-curl -sfL https://get.k3s.io | sh -
+curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION=v1.30.6+k3s1 sh -
 export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
 echo 'export KUBECONFIG=/etc/rancher/k3s/k3s.yaml' >> ~/.bashrc
 sleep 10
