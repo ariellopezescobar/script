@@ -31,7 +31,7 @@ spec:
         ingress:
           class: traefik
 EOF
-helm repo add rancher-latest https://releases.rancher.com/server-charts/latest
+helm repo add rancher-stable https://releases.rancher.com/server-charts/stable
 helm repo update
 kubectl create namespace cattle-system || true
 curl -o letsencrypt-ca.pem https://letsencrypt.org/certs/isrgrootx1.pem.txt
