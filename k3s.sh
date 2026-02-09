@@ -4,7 +4,7 @@ DOMAIN="k3s.oruro.gob.bo"
 EMAIL="admin@oruro.gob.bo"
 apt-get update && apt-get upgrade -y
 apt-get install -y curl wget bash ca-certificates gnupg lsb-release apt-transport-https net-tools ufw nmap
-curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION=v1.30.6+k3s1 sh -
+curl -sfL https://get.k3s.io | sh -
 export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
 echo 'export KUBECONFIG=/etc/rancher/k3s/k3s.yaml' >> ~/.bashrc
 sleep 10
@@ -31,14 +31,13 @@ spec:
         ingress:
           class: traefik
 EOF
-helm repo add rancher-stable https://releases.rancher.com/server-charts/stable
+helm repo add rancher-latest https://releases.rancher.com/server-charts/latest
 helm repo update
 kubectl create namespace cattle-system || true
 curl -o letsencrypt-ca.pem https://letsencrypt.org/certs/isrgrootx1.pem.txt
 cat letsencrypt-ca.pem | awk '{printf "%s\\n", $0}' > letsencrypt-ca-escaped.txt
 CACERTS=$(cat letsencrypt-ca-escaped.txt)
-helm upgrade --install rancher rancher-stable/rancher \
-  --version 2.12.3 \
+helm upgrade --install rancher rancher-latest/rancher \
   --namespace cattle-system --create-namespace \
   --set hostname=$DOMAIN \
   --set replicas=1 \
