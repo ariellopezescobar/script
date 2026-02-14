@@ -77,3 +77,48 @@ else
   echo "### El certificado tls-rancher-ingress ya existe y está listo."
 fi
 kubectl -n cattle-system wait --for=condition=Ready certificate/tls-rancher-ingress --timeout=30m || true
+
+#!/bin/bash
+
+set -e
+
+DOMINIO="k3s.oruro.gob.bo"
+ARCHIVO_CERT="/tmp/rancher-ca.crt"
+
+echo "🔐 Extrayendo certificado de $DOMINIO:443 ..."
+echo | openssl s_client -connect "$DOMINIO:443" -showcerts 2>/dev/null \
+  | openssl x509 -outform PEM > "$ARCHIVO_CERT"
+
+if [[ ! -s "$ARCHIVO_CERT" ]]; then
+  echo "❌ No se pudo extraer el certificado de $DOMINIO"
+  exit 1
+fi
+
+echo "✅ Certificado extraído correctamente."
+
+echo "🔑 Eliminando el secret previo (si existe)..."
+kubectl -n cattle-system delete secret tls-ca || true
+
+echo "🔑 Creando el secret tls-ca con el certificado..."
+kubectl -n cattle-system create secret generic tls-ca --from-file=cacerts.pem="$ARCHIVO_CERT"
+
+echo "⚙️  Reconfigurando Rancher para usar el privateCA..."
+helm upgrade rancher rancher-latest/rancher \
+  --namespace cattle-system \
+  --set hostname="$DOMINIO" \
+  --set ingress.tls.source=secret \
+  --set privateCA=true
+
+echo "♻ Reiniciando Rancher para aplicar cambios..."
+kubectl -n cattle-system rollout restart deployment rancher
+
+echo "⏳ Espera 120 segundos a que Rancher reinicie..."
+sleep 120
+
+echo "🔍 Validando que Rancher publique correctamente el cacerts..."
+curl -sk "https://$DOMINIO/cacerts" | openssl x509 -noout -fingerprint -sha256 || {
+  echo "❌ Rancher aún no publica el cacerts correctamente"
+  exit 1
+}
+
+echo "✅ Proceso finalizado. Puedes registrar nodos con el nuevo --ca-checksum."
